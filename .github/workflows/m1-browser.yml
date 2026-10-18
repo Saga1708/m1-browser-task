@@ -1,0 +1,47 @@
+name: M1 Browser Task
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Public webpage to capture (https://...)
+        required: true
+        default: https://example.com
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: macos-14
+    timeout-minutes: 10
+    steps:
+      - name: Check Apple Silicon hardware
+        run: |
+          mkdir -p output
+          {
+            sysctl -n machdep.cpu.brand_string
+            uname -m
+            sw_vers
+          } | tee output/hardware.txt
+
+      - name: Open webpage in Chrome and capture screenshot
+        env:
+          TARGET_URL: ${{ inputs.url }}
+        run: |
+          case "$TARGET_URL" in
+            https://*|http://*) ;;
+            *) echo "Enter a URL beginning with https:// or http://"; exit 1 ;;
+          esac
+          CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+          "$CHROME" --version | tee output/browser-version.txt
+          "$CHROME" --headless --disable-gpu --no-first-run --user-data-dir="$RUNNER_TEMP/chrome-profile" --window-size=1440,1000 --timeout=30000 --screenshot="$PWD/output/browser.png" "$TARGET_URL"
+
+      - name: Save screenshot and hardware information
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m1-browser-results
+          path: output/
+          retention-days: 1
