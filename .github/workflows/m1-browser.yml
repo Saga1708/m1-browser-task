@@ -36,7 +36,17 @@ jobs:
           esac
           CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
           "$CHROME" --version | tee output/browser-version.txt
-          "$CHROME" --headless --disable-gpu --no-first-run --user-data-dir="$RUNNER_TEMP/chrome-profile" --window-size=1440,1000 --timeout=30000 --screenshot="$PWD/output/browser.png" "$TARGET_URL"
+          "$CHROME" --headless --disable-gpu --no-first-run --user-data-dir="$RUNNER_TEMP/chrome-profile" --window-size=1440,1000 --timeout=30000 --screenshot="$PWD/output/browser.png" "$TARGET_URL" >output/chrome.log 2>&1 &
+          CHROME_PID=$!
+          for attempt in {1..60}; do
+            if [ -s output/browser.png ]; then break; fi
+            if ! kill -0 "$CHROME_PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          kill "$CHROME_PID" 2>/dev/null || true
+          wait "$CHROME_PID" 2>/dev/null || true
+          test -s output/browser.png
+          echo "Browser screenshot captured successfully."
 
       - name: Save screenshot and hardware information
         if: always()
